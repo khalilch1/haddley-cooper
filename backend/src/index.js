@@ -21,15 +21,31 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, cb) => {
-    // allow no-origin requests (mobile, curl, Render health checks)
-    if (!origin) return cb(null, true);
+    if (!origin) return cb(null, true); // curl, mobile, health checks
     if (allowedOrigins.some(o => origin.startsWith(o))) return cb(null, true);
+    // En dev ou si aucune origine configurée, tout autoriser
+    if (allowedOrigins.length <= 2) return cb(null, true);
     cb(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true
 }));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Auto-seed on startup if DB is empty (required for Render ephemeral filesystem)
+try {
+  const db = require('./models/db');
+  const count = db.prepare('SELECT COUNT(*) as c FROM products').get().c;
+  if (count === 0) {
+    console.log('📦 DB vide détectée — initialisation du catalogue...');
+    require('./seed');
+    console.log('✅ Catalogue initialisé avec succès');
+  } else {
+    console.log(`✅ DB existante — ${count} produits chargés`);
+  }
+} catch (e) {
+  console.error('❌ Erreur auto-seed:', e.message);
+}
 
 // Routes
 const { categoriesRouter, statsRouter, customersRouter } = require('./routes/misc');
@@ -45,15 +61,4 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Dat
 
 app.listen(PORT, () => {
   console.log(`🚀 Haddley & Cooper API running on http://localhost:${PORT}`);
-  // Auto-seed if DB is empty (Render ephemeral filesystem)
-  try {
-    const db = require('./models/db');
-    const count = db.prepare('SELECT COUNT(*) as c FROM products').get().c;
-    if (count === 0) {
-      console.log('📦 Empty DB detected — running seed...');
-      require('./seed');
-    }
-  } catch (e) {
-    console.error('Auto-seed error:', e.message);
-  }
 });

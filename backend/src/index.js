@@ -12,23 +12,7 @@ app.post('/api/orders/webhook', express.raw({ type: 'application/json' }), (req,
   ordersRouter.handle(req, res);
 });
 
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  process.env.FRONTEND_URL,
-  process.env.ADMIN_URL,
-].filter(Boolean);
-
-app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true); // curl, mobile, health checks
-    if (allowedOrigins.some(o => origin.startsWith(o))) return cb(null, true);
-    // En dev ou si aucune origine configurée, tout autoriser
-    if (allowedOrigins.length <= 2) return cb(null, true);
-    cb(new Error(`CORS: origin ${origin} not allowed`));
-  },
-  credentials: true
-}));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
